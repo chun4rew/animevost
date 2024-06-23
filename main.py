@@ -3,13 +3,23 @@
 #   2. Добавить кроп видео
 #   3. Добавить выбор серии
 
-from moviepy.editor import VideoFileClip, CompositeVideoClip, TextClip
+from moviepy.video.compositing.concatenate import concatenate_videoclips
+import cv2
+from moviepy.video.fx import resize
+from moviepy.editor import VideoFileClip, CompositeVideoClip, TextClip, ImageClip
 from bs4 import BeautifulSoup as bs
 import requests
 import re
 import wget
+import math
 import urllib.parse
 import subprocess
+
+'''
+Необходимые зависимости
+ - ffmpeg
+ - opencv-python
+'''
 
 '''
 Живые аниме обои
@@ -64,24 +74,36 @@ def search_anime(request):
     return decoded_content
 
 
-def process_video(input_video_path, output_video_path, background_image_path):
+def process_video(input_video_path, output_video_path):
     # Загрузка видео и фона
     video = VideoFileClip(input_video_path)
-    background = VideoFileClip(background_image_path)
+    # img = cv2.imread('test.jpg')
+    # cropped_img = img[1920:720, 1920:720]
+    # cv2.imwrite('output.jpg', cropped_img)
+    background = ImageClip('test.jpg')
     start_time = 5 * 60
     end_time = (6 * 60) - 10
 
     # Trim the video using start_time and end_time values
     trimmed_video = video.subclip(start_time, end_time)
 
-    # # Наложение видео на фон
-    # trimmed_video = CompositeVideoClip([
-    #     background.set_duration(trimmed_video.duration),  # Устанавливаем продолжительность фона равной видео
-    #     video.set_position(('center', 'center'))
-    # ])
+    # Loop the background video to match the duration of the trimmed video
+    # background_loop = concatenate_videoclips([background] * math.ceil(trimmed_video.duration / background.duration))
+    background_loop = background.set_duration(trimmed_video.duration).resize((1080, 1524))
+
+
+    # Resize the trimmed video to fit the full length of the background
+    # Place the trimmed video in the center of the background
+    trimmed_video = trimmed_video.set_position(('center', 'center'))
+
+    # Наложение видео на фон
+    final_video = CompositeVideoClip([
+        background_loop,
+        trimmed_video
+    ])
 
     # Сохранение видео
-    trimmed_video.write_videofile(output_video_path, codec='libx264', audio_codec='aac')
+    final_video.write_videofile(output_video_path, codec='libx264', audio_codec='aac')
 
 
 if __name__ == "__main__":
@@ -100,7 +122,7 @@ if __name__ == "__main__":
     #     "output.mp4"
     # ])
 
-    process_video('video.mp4', 'output.mp4', 'image.jpg')
+    process_video('video.mp4', 'output.mp4')
 
 # Загружаем на ютуб
 # https://github.com/linouk23/youtube_uploader_selenium
