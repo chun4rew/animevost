@@ -1,6 +1,6 @@
 #TODO
-#   1. Сделать обрезку видео, например: с 5 минуты до 6 минуты
-#   2. Добавить кроп видео
+#   1. С̶д̶е̶л̶а̶т̶ь̶ ̶о̶б̶р̶е̶з̶к̶у̶ ̶в̶и̶д̶е̶о̶,̶ ̶н̶а̶п̶р̶и̶м̶е̶р̶:̶ ̶с̶ ̶5̶ ̶м̶и̶н̶у̶т̶ы̶ ̶д̶о̶ ̶6̶ ̶м̶и̶н̶у̶т̶ы̶
+#   2. Д̶о̶б̶а̶в̶и̶т̶ь̶ ̶к̶р̶о̶п̶ ̶в̶и̶д̶е̶о̶
 #   3. Добавить выбор серии
 
 from moviepy.video.compositing.concatenate import concatenate_videoclips
@@ -105,10 +105,7 @@ def video_to_text_with_timestamps(video_input):
     audio.write_audiofile("temp_audio.wav")
 
     # Загрузка модели whisper
-    model = whisper.load_model("base")
-
-    # Получение длительности аудио
-    audio_duration = audio.duration
+    model = whisper.load_model("large-v2")
 
     # Создание progress bar
     pbar = tqdm(total=100, desc="Распознавание речи", unit="%")
@@ -242,5 +239,5 @@ def process_video(input_video_path, output_video_path):
 
 
 if __name__ == "__main__":
-    #download_video('MzUwNiU3QzQrJUYxJUU1JUYwJUU4JUZGJTdDNDM3MjAyMjc4')
+    download_video('MzUwOSU3QzUrJUYxJUU1JUYwJUU4JUZGJTdDMjUwMDAxMjU4')
     process_video('video.mp4', 'output.mp4')
