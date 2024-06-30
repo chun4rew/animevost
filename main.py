@@ -5,7 +5,7 @@
 
 from moviepy.video.compositing.concatenate import concatenate_videoclips
 from moviepy.video.fx import resize
-from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, TextClip
+from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, TextClip, ColorClip
 from bs4 import BeautifulSoup as bs
 import requests
 import re
@@ -125,55 +125,66 @@ def video_to_text_with_timestamps(video_input):
     return result["segments"]
 
 
-def create_subtitle_clip(text, video_width, font_size=40, max_lines=3):
-    # Оборачивание текста
-    wrapper = textwrap.TextWrapper(width=int(video_width / (font_size / 2)), max_lines=max_lines)
-    text_lines = wrapper.wrap(text)
-    text = '\n'.join(text_lines)
+def create_subtitle_clip(text, video_width, font_size=40, max_lines=2):
+    # Фиксированные размеры для контейнера субтитров
+    subtitle_width = video_width
+    subtitle_height = 100  # Можно настроить по вашему усмотрению
 
     # Создание текстового клипа
     txt_clip = TextClip(text, fontsize=font_size, color='white', font='Arial-Bold',
-                        method='label', align='center', size=(video_width, None))
+                        method='caption', align='center', size=(subtitle_width, None))
+
+    # Изменение размера текстового клипа, если он превышает заданную высоту
+    if txt_clip.h > subtitle_height:
+        txt_clip = txt_clip.resize(height=subtitle_height)
 
     # Создание обводки
     stroke_color = 'black'
     stroke_width = 5
 
     def make_stroke(txt):
-        """ Создает 'обводку' вокруг текста """
         return TextClip(txt, fontsize=font_size, color=stroke_color, font='Arial-Bold',
-                        method='label', align='center', size=(video_width, None))
+                        method='caption', align='center', size=(subtitle_width, None))
 
     strokes = [
         make_stroke(text).set_position((x, y))
-        for x in range(-stroke_width, stroke_width+1, stroke_width)
-        for y in range(-stroke_width, stroke_width+1, stroke_width)
+        for x in range(-stroke_width, stroke_width + 1, stroke_width)
+        for y in range(-stroke_width, stroke_width + 1, stroke_width)
         if (x, y) != (0, 0)
     ]
 
-    # Объединение обводки и текста
-    final_txt_clip = CompositeVideoClip([*strokes, txt_clip])
-    final_txt_clip = final_txt_clip.set_position(('center', 'bottom'))
+    # Если stroke clip больше заданной высоты, изменяем его размер
+    for stroke in strokes:
+        if stroke.h > subtitle_height:
+            stroke.resize(height=subtitle_height)
+
+    # Создание прозрачного фона фиксированного размера
+    background = ColorClip(size=(subtitle_width, subtitle_height), color=(0, 0, 0))
+    background = background.set_opacity(0)  # Полностью прозрачный фон
+
+    # Объединение обводки, текста и прозрачного фона
+    final_txt_clip = CompositeVideoClip([background] + strokes + [txt_clip])
 
     return final_txt_clip
 
 
 def create_subtitle_clips(segments, video_width, subtitle_y_position, video_duration):
     logging.info('Create subtitle clips')
-
     subtitle_clips = []
     for segment in segments:
         start = segment['start']
-        end = min(segment['end'], video_duration)  # Ограничиваем конец длительностью видео
+        end = min(segment['end'], video_duration)
         text = segment['text']
         subtitle_clip = create_subtitle_clip(text, video_width)
         subtitle_clip = subtitle_clip.set_start(start).set_end(end).set_position(('center', subtitle_y_position))
         subtitle_clips.append(subtitle_clip)
 
-    # Добавляем пустой клип в конец, чтобы субтитры длились до конца видео
-    empty_clip = TextClip(" ", fontsize=1, color='white', size=(video_width, 1))
-    empty_clip = empty_clip.set_duration(video_duration - subtitle_clips[-1].end).set_start(subtitle_clips[-1].end)
-    subtitle_clips.append(empty_clip)
+    # Добавляем пустой клип в конец, если нужно
+    if subtitle_clips and subtitle_clips[-1].end < video_duration:
+        empty_clip = ColorClip(size=(video_width, 100), color=(0, 0, 0))
+        empty_clip = empty_clip.set_opacity(0).set_duration(video_duration - subtitle_clips[-1].end).set_start(
+            subtitle_clips[-1].end)
+        subtitle_clips.append(empty_clip)
 
     return subtitle_clips
 
@@ -222,7 +233,7 @@ def process_video(input_video_path, output_video_path):
     # Получение субтитров с временными метками
     segments = video_to_text_with_timestamps(trimmed_video)
 
-    subtitle_y_position = video_bottom + 20  # 20 пикселей под видео
+    subtitle_y_position = video_bottom - 100  # 20 пикселей под видео
     subtitle_clips = create_subtitle_clips(segments, final_width, subtitle_y_position, trimmed_video.duration)
 
     # Создание финального видео
@@ -239,5 +250,5 @@ def process_video(input_video_path, output_video_path):
 
 
 if __name__ == "__main__":
-    download_video('MzUwOSU3QzUrJUYxJUU1JUYwJUU4JUZGJTdDMjUwMDAxMjU4')
+    #download_video('MzUwOSU3QzUrJUYxJUU1JUYwJUU4JUZGJTdDMjUwMDAxMjU4')
     process_video('video.mp4', 'output.mp4')
